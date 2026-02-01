@@ -511,13 +511,24 @@ export default function UIVariantAnalyzer() {
       });
 
       const data = await response.json();
+
+      // Check for API errors
+      if (data.error) {
+        throw new Error(data.error.message || data.error || 'API request failed');
+      }
+
       const text = data.content?.find(c => c.type === 'text')?.text || '';
-      
+
+      if (!text) {
+        throw new Error('No response received from API');
+      }
+
       const cleanedText = text.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
       const parsed = JSON.parse(cleanedText);
       setAnalysis(parsed);
     } catch (err) {
-      setError('Analysis failed. Please try again. ' + err.message);
+      console.error('Analysis error:', err);
+      setError('Analysis failed: ' + err.message);
     } finally {
       setLoading(false);
     }
