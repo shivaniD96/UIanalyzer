@@ -454,23 +454,24 @@ export default function UIVariantAnalyzer() {
     setError(null);
 
     try {
-      const contentBlocks = [];
-      
+      // Build Gemini-compatible content parts
+      const parts = [];
+
+      // Add images first
       variants.filter(v => v.type === 'image').forEach((v) => {
-        contentBlocks.push({
-          type: 'image',
-          source: {
-            type: 'base64',
-            media_type: v.data.includes('png') ? 'image/png' : 'image/jpeg',
+        parts.push({
+          inlineData: {
+            mimeType: v.data.includes('png') ? 'image/png' : 'image/jpeg',
             data: v.base64
           }
         });
       });
-      
+
+      // Build code variants text
       const codeVariantsText = variants
         .filter(v => v.type === 'code')
         .map((v) => {
-          const filesContent = v.files.map(f => 
+          const filesContent = v.files.map(f =>
             `--- File: ${f.path} ---\n${f.content}`
           ).join('\n\n');
           return `\n=== CODE VARIANT: ${v.name} (Folder: ${v.folderName}) ===\n${filesContent}`;
@@ -490,23 +491,18 @@ export default function UIVariantAnalyzer() {
         }
       }).join(', ');
 
-      contentBlocks.push({
-        type: 'text',
+      // Add text prompt
+      parts.push({
         text: `${ANALYSIS_PROMPT}\n\nI'm providing ${variants.length} UI variants for A/B testing analysis:\n${variantDescriptions}\n\n${codeVariantsText}\n\nPlease analyze each variant and provide your comprehensive comparison. For code variants, analyze the UI that would be rendered and also comment on code quality.`
       });
-
-      const messages = [{
-        role: 'user',
-        content: contentBlocks
-      }];
 
       const response = await fetch('/api/analyze', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          model: 'claude-sonnet-4-20250514',
-          max_tokens: 4000,
-          messages
+          contents: [{
+            parts: parts
+          }]
         })
       });
 
@@ -517,7 +513,8 @@ export default function UIVariantAnalyzer() {
         throw new Error(data.error.message || data.error || 'API request failed');
       }
 
-      const text = data.content?.find(c => c.type === 'text')?.text || '';
+      // Extract text from Gemini response format
+      const text = data.candidates?.[0]?.content?.parts?.[0]?.text || '';
 
       if (!text) {
         throw new Error('No response received from API');
