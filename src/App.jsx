@@ -500,7 +500,7 @@ export default function UIVariantAnalyzer() {
         content: contentBlocks
       }];
 
-      const response = await fetch('https://api.anthropic.com/v1/messages', {
+      const response = await fetch('/api/analyze', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
